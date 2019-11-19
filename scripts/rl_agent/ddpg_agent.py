@@ -58,7 +58,7 @@ class ddpgAgent():
             action[0][0] = 0.0
         if action[0][0] > 1.0:
             action[0][0] = 1.0
-        #print("NN Controller: {:5.4f}, Noise NN Controller: {:5.4f}".format(action_original[0][0], action[0][0]))
+        print("NN Controller: {:5.4f}, Noise NN Controller: {:5.4f}".format(action_original[0][0], action[0][0]))
         return action
     
     def storeTrajectory(self, s, a, r, s_, done):

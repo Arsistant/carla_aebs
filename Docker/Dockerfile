@@ -22,6 +22,6 @@ RUN pip3 install opencv-python
 
 USER carla
 RUN echo 'export CARLA_SERVER=/home/carla/CarlaUE4.sh' >> ~/.bashrc
-RUN echo 'export CARLA_PYTHON=/home/carla/PythonAPI/carla/dist/carla-0.9.6-py3.5-linux-x86_64.egg' >> ~/.bashrc
+RUN echo 'export PYTHONPATH=/home/carla/PythonAPI/carla/dist/carla-0.9.6-py3.5-linux-x86_64.egg:$PYTHONPATH' >> ~/.bashrc
 RUN echo 'export PYTHONDONTWRITEBYTECODE=1' >> ~/.bashrc
 WORKDIR /home/carla/aebs

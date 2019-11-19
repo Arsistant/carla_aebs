@@ -1,12 +1,8 @@
 import sys
 import os
 import cv2
-try:
-    sys.path.append(os.environ["CARLA_PYTHON"])
-    import carla
-    from carla import Image
-except:
-    raise Exception('No CARLA module found.')
+import carla
+from carla import Image
 import numpy as np
 from keras.models import model_from_json
 import tensorflow as tf

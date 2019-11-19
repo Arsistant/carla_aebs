@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    EPISODE = 100
+    EPISODE = 2000
 
     try:
         carla_server = ServerManagerBinary({'CARLA_SERVER': os.environ["CARLA_SERVER"]})

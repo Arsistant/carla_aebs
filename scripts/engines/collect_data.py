@@ -1,12 +1,7 @@
 import os
 import sys
 import csv
-
-try:
-    sys.path.append(os.environ["CARLA_PYTHON"])
-    from carla import Image
-except:
-    raise Exception('No CARLA module found.')
+from carla import Image
 
 class collectData():
     def __init__(self, path, isPerception):
