@@ -5,6 +5,7 @@ import queue
 import random
 from scripts.engines.viewer import pygameViewer
 from scripts.engines.distance_calculation import DistanceCalculation
+from scripts.engines.dynamic_weather import DynamicPrecipitation
 from scripts.engines.pid import PID
 from scripts.engines.collect_data import collectData
 import math
@@ -15,7 +16,7 @@ import carla
 from carla import Transform, Location, Rotation
 
 class SetupWorld():
-    def __init__(self, host='127.0.0.1', weather=None, port=2000, town=1, gui=False, collect=None, perception=None):
+    def __init__(self, host='127.0.0.1', port=2000, town=1, gui=False, collect=None, perception=None):
         self.episode = 0
         self.collect_path = collect
         self.perception = perception
@@ -24,9 +25,7 @@ class SetupWorld():
         self.client = carla.Client(host, port)
         self.client.set_timeout(10.0)
         self.world = self.client.load_world('Town0{}'.format(town))
-        self.weather = weather
         self.episode_count = 0
-        self.random_weather_list = [0,1,2,3,4]
         settings = self.world.get_settings()
         settings.fixed_delta_seconds = 0.05
         self.frame = None
@@ -54,10 +53,12 @@ class SetupWorld():
             self.display = pygameViewer()
         
         if self.collect_path is not None:
-            self.collect_data = collectData(os.path.join(self.collect_path, str(self.episode)))
+            self.collect_data = collectData(os.path.join(self.collect_path, str(self.episode)), self.perception)
         
         self.step_count = 0
-        self.episode+=1
+        self.weather = DynamicPrecipitation(initial_precipitation=50.0)
+        self.world.set_weather(self.weather.get_weather_parameters())
+        
         S0 = self.reset_episode(initial_distance, initial_speed)
         self.episode_count += 1
         return S0
@@ -65,6 +66,7 @@ class SetupWorld():
     def reset_episode(self, initial_distance, initial_speed):
         velocity = 0.0
         while True:
+            self.world.set_weather(self.weather.get_weather_parameters())
             action = self.pid_controller.update(initial_speed, velocity)
             control = carla.VehicleControl(
                         throttle = action + 0.4,
@@ -79,9 +81,6 @@ class SetupWorld():
                 print("collision occurred during reset...")
             distance = self.dist_calc.getTrueDistance()
             velocity = self.ego_vehicle.get_velocity().y
-            if self.collect_path is not None and distance<110.0:
-                self.collect_data(image, distance, velocity, -1, self.step_count)
-                self.step_count += 1
             if self.gui:
                 self.display.updateViewer(image)
             if (distance<=initial_distance):
@@ -129,6 +128,8 @@ class SetupWorld():
         self.collision.listen(self.collision_queue.put)
     
     def step(self, action):
+        self.step_count += 1
+        self.world.set_weather(self.weather.get_weather_parameters(step=self.step_count))
         control=carla.VehicleControl(
             throttle = 0.0,
             brake = action
@@ -151,7 +152,6 @@ class SetupWorld():
         velocity = self.ego_vehicle.get_velocity().y
         if self.collect_path is not None:
             self.collect_data(image, groundtruth_distance, velocity, action, self.step_count)
-        self.step_count += 1
 
         if self.gui:
             self.display.updateViewer(image)
@@ -173,6 +173,7 @@ class SetupWorld():
                 too_close_reward = -(20.0)*(groundtruth_distance<1.0)
                 reward = too_far_reward + too_close_reward
                 print("Stop: {}, Distance: {}".format(reward, groundtruth_distance))
+            self.episode+=1
         else:
             reward = 0
 
