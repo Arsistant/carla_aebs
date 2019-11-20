@@ -16,7 +16,7 @@ import carla
 from carla import Transform, Location, Rotation
 
 class SetupWorld():
-    def __init__(self, host='127.0.0.1', port=2000, town=1, gui=False, collect=None, perception=None):
+    def __init__(self, host='127.0.0.1', port=2000, town=1, gui=False, collect={"option":0, "path": None}, perception=None):
         self.episode = 0
         self.collect = collect
         self.perception = perception
@@ -51,7 +51,7 @@ class SetupWorld():
         if self.gui:
             self.display = pygameViewer()
         
-        if self.collect is not None:
+        if self.collect["option"] != 0:
             self.collect_data = collectData(os.path.join(self.collect["path"], "episode_" + str(self.episode)), self.perception)
         
         self.step_count = 0
@@ -94,7 +94,7 @@ class SetupWorld():
         regression_distance = 0
         if self.perception:
             regression_distance = self.dist_calc.getRegressionDistance(image)
-        if self.collect:
+        if self.collect["option"] != 0:
             self.collect_data(image, distance, velocity, -0.1, weather_parameter.precipitation, self.step_count, regression_distance)
         if self.perception:
             distance = regression_distance
@@ -165,7 +165,7 @@ class SetupWorld():
             distance = regression_distance
             print("Groundtruth distance: {}, Regression distance: {}, Error: {}".format(groundtruth_distance, regression_distance, abs(regression_distance-groundtruth_distance)))
         velocity = self.ego_vehicle.get_velocity().y
-        if self.collect:
+        if self.collect["option"] != 0:
             self.collect_data(image, groundtruth_distance, velocity, action, weather_parameter.precipitation, self.step_count, regression_distance)
 
         if self.gui:

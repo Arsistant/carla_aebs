@@ -26,13 +26,12 @@ if __name__ == '__main__':
     parser.add_argument("-cp", "--collect_perception", help="collect the data for perception training")
     parser.add_argument("-ca", "--collect_detector", help="collect the data for detector training")
     parser.add_argument("-p", "--perception", help="set the path of perception neural network")
-    parser.add_argument("-e", "--episode", help="set the number of episode", default=1)
+    parser.add_argument("-e", "--episode", help="set the number of episode", type=int, default=1)
 
     args = parser.parse_args()
 
     try:
         collect = args_assertions(args)
-        print(collect)
         carla_server = ServerManagerBinary({'CARLA_SERVER': os.environ["CARLA_SERVER"]})
         carla_server.reset()
         carla_server.wait_until_ready()
