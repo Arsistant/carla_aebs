@@ -13,7 +13,7 @@ RUN apt-get install -y --no-install-recommends libsm6 libxext6 libxrender-dev
 RUN apt-get install -y --no-install-recommends libpng16-16
 RUN apt-get install -y --no-install-recommends libjpeg-turbo8
 RUN apt-get install -y --no-install-recommends libtiff5
-RUN pip3 install numpy==1.16
+RUN pip3 install numpy==1.16.4
 RUN pip3 install tensorflow-gpu==1.14.0
 RUN pip3 install keras==2.3.0
 RUN pip3 install psutil
