@@ -18,7 +18,7 @@ from carla import Transform, Location, Rotation
 class SetupWorld():
     def __init__(self, host='127.0.0.1', port=2000, town=1, gui=False, collect=None, perception=None):
         self.episode = 0
-        self.collect_path = collect
+        self.collect = collect
         self.perception = perception
         self.gui = gui
         # try to import carla python API
@@ -28,7 +28,6 @@ class SetupWorld():
         self.episode_count = 0
         settings = self.world.get_settings()
         settings.fixed_delta_seconds = 0.05
-        self.frame = None
         settings.synchronous_mode = True
         self.world.apply_settings(settings)
         self.actor = []
@@ -52,11 +51,11 @@ class SetupWorld():
         if self.gui:
             self.display = pygameViewer()
         
-        if self.collect_path is not None:
-            self.collect_data = collectData(os.path.join(self.collect_path, str(self.episode)), self.perception)
+        if self.collect is not None:
+            self.collect_data = collectData(os.path.join(self.collect["path"], "episode_" + str(self.episode)), self.perception)
         
         self.step_count = 0
-        self.weather = DynamicPrecipitation(initial_precipitation=50.0)
+        self.weather = DynamicPrecipitation()
         self.world.set_weather(self.weather.get_weather_parameters())
         
         S0 = self.reset_episode(initial_distance, initial_speed)
@@ -66,7 +65,8 @@ class SetupWorld():
     def reset_episode(self, initial_distance, initial_speed):
         velocity = 0.0
         while True:
-            self.world.set_weather(self.weather.get_weather_parameters())
+            weather_parameter = self.weather.get_weather_parameters()
+            self.world.set_weather(weather_parameter)
             action = self.pid_controller.update(initial_speed, velocity)
             control = carla.VehicleControl(
                         throttle = action + 0.4,
@@ -83,9 +83,22 @@ class SetupWorld():
             velocity = self.ego_vehicle.get_velocity().y
             if self.gui:
                 self.display.updateViewer(image)
+            
             if (distance<=initial_distance):
                 break
-        #print("The car reset to initial distance: {} and initial speed: {}".format(distance, velocity))
+
+            if self.collect["option"] == 1 and distance <= 110:
+                self.collect_data(image, distance, velocity, -1, weather_parameter.precipitation, self.step_count)
+
+        # collect the data for s0
+        regression_distance = 0
+        if self.perception:
+            regression_distance = self.dist_calc.getRegressionDistance(image)
+        if self.collect:
+            self.collect_data(image, distance, velocity, -0.1, weather_parameter.precipitation, self.step_count, regression_distance)
+        if self.perception:
+            distance = regression_distance
+
         return [distance, velocity]
 
 
@@ -129,7 +142,8 @@ class SetupWorld():
     
     def step(self, action):
         self.step_count += 1
-        self.world.set_weather(self.weather.get_weather_parameters(step=self.step_count))
+        weather_parameter = self.weather.get_weather_parameters(step=self.step_count)
+        self.world.set_weather(weather_parameter)
         control=carla.VehicleControl(
             throttle = 0.0,
             brake = action
@@ -144,14 +158,15 @@ class SetupWorld():
             isCollision = False
 
         groundtruth_distance = self.dist_calc.getTrueDistance()
+        regression_distance = 0
         distance = groundtruth_distance
         if groundtruth_distance < 110.0 and self.perception is not None:
             regression_distance = self.dist_calc.getRegressionDistance(image)
-            #distance = regression_distance
+            distance = regression_distance
             print("Groundtruth distance: {}, Regression distance: {}, Error: {}".format(groundtruth_distance, regression_distance, abs(regression_distance-groundtruth_distance)))
         velocity = self.ego_vehicle.get_velocity().y
-        if self.collect_path is not None:
-            self.collect_data(image, groundtruth_distance, velocity, action, self.step_count)
+        if self.collect:
+            self.collect_data(image, groundtruth_distance, velocity, action, weather_parameter.precipitation, self.step_count, regression_distance)
 
         if self.gui:
             self.display.updateViewer(image)

@@ -7,8 +7,8 @@ import numpy as np
 from keras.models import model_from_json
 import tensorflow as tf
 
-tf.logging.set_verbosity(tf.logging.ERROR)
-sess = tf.InteractiveSession()
+
+sess = tf.compat.v1.InteractiveSession()
 
 class DistanceCalculation():
     def __init__(self, ego_vehicle, leading_vehicle, perception=None):

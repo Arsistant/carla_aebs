@@ -1,3 +1,4 @@
+import os
 import tensorflow as tf
 from keras import backend as K
 import numpy as np
@@ -6,7 +7,6 @@ from scripts.rl_agent.CriticNetwork import CriticNetwork
 from scripts.rl_agent.OU import OU
 from scripts.rl_agent.ReplayBuffer import ReplayBuffer
 import json
-import os
 
 state_dim = 2
 action_dim = 1
