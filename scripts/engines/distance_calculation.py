@@ -4,11 +4,7 @@ import cv2
 import carla
 from carla import Image
 import numpy as np
-from keras.models import model_from_json
-import tensorflow as tf
 
-
-sess = tf.compat.v1.InteractiveSession()
 
 class DistanceCalculation():
     def __init__(self, ego_vehicle, leading_vehicle, perception=None):

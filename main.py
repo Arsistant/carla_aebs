@@ -6,7 +6,6 @@ from scripts.engines.setup_world import SetupWorld
 from scripts.rl_agent.ddpg_agent import ddpgAgent
 from scripts.rl_agent.input_preprocessor import InputPreprocessor
 import numpy as np
-from keras.models import model_from_json
 
 def args_assertions(args):
     collect_1 = args.collect_perception is not None
