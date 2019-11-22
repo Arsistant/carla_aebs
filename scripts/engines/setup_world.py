@@ -55,7 +55,7 @@ class SetupWorld():
             self.collect_data = collectData(os.path.join(self.collect["path"], "episode_" + str(self.episode)), self.perception)
         
         self.step_count = 0
-        self.weather = DynamicPrecipitation()
+        self.weather = DynamicPrecipitation(initial_precipitation=round(np.random.uniform(0.0,20.0), 2))
         self.world.set_weather(self.weather.get_weather_parameters())
         
         S0 = self.reset_episode(initial_distance, initial_speed)
