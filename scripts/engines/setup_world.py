@@ -185,7 +185,7 @@ class SetupWorld():
                 #too_far_reward = -(distance>5.0)*(distance-5)#-((distance-5)/250.0*400 + 20) * (distance>5.0)
                 too_far_reward = -((groundtruth_distance-3.0)/120.0*400+30) * (groundtruth_distance>3.0) 
                 #too_close_reward = 0.0#-(20.0)*(distance<1.0)
-                too_close_reward = -(20.0)*(groundtruth_distance<1.0)
+                too_close_reward = -(40.0)*(groundtruth_distance<1.0)
                 reward = too_far_reward + too_close_reward
                 print("Stop: {}, Distance: {}".format(reward, groundtruth_distance))
             self.episode+=1
