@@ -8,6 +8,7 @@ import cv2
 
 class CarlaDataLoader(data.DataLoader):
     def __init__(self, data_path, split='training'):
+        self.data_path = data_path
         self.split = split
         self.image_path = collections.defaultdict(list)
         self.gt_distance = collections.defaultdict(list)
@@ -36,11 +37,11 @@ class CarlaDataLoader(data.DataLoader):
         return len(self.gt_distance[self.split])
     
     def __getitem__(self, index):
-        img_path = self.image_path[self.split][index]
-        img = cv2.imread(img_path+".png")
+        img_path = os.path.join(self.data_path, self.image_path[self.split][index])
+        img = cv2.imread(img_path)
         img = self.transform(img)
         gt_distance = self.gt_distance[self.split][index]
-        gt_distance = np.array([gt_distance]).astype('float')/100.0
+        gt_distance = np.array([gt_distance]).astype('float')/120.0
 
         return img, gt_distance
     

@@ -34,7 +34,7 @@ class DistanceCalculation():
             img = np.rollaxis(img, 2, 0)
             img = np.expand_dims(img,axis=0)
             img = torch.from_numpy(img).to(device="cuda", dtype=torch.float)
-            distance = self.model(img)*100.0
+            distance = self.model(img)*120.0
             return float(distance.item())
         return None
         

@@ -16,11 +16,12 @@ import carla
 from carla import Transform, Location, Rotation
 
 class SetupWorld():
-    def __init__(self, host='127.0.0.1', port=2000, town=1, gui=False, collect={"option":0, "path": None}, perception=None):
+    def __init__(self, host='127.0.0.1', port=2000, town=1, gui=False, collect_path=None, perception=None, rl_agent=True):
         self.episode = 0
-        self.collect = collect
+        self.collect_path = collect_path
         self.perception = perception
         self.gui = gui
+        self.rl_agent = rl_agent
         # try to import carla python API
         self.client = carla.Client(host, port)
         self.client.set_timeout(10.0)
@@ -33,7 +34,7 @@ class SetupWorld():
         self.actor = []
         self.display = None
     
-    def reset(self, initial_distance, initial_speed):
+    def reset(self, initial_distance=None, initial_speed=None):
         if self.gui and self.display:
             self.display.stop()
 
@@ -44,21 +45,29 @@ class SetupWorld():
                 self.actor[i] = None
         self.actor = []
 
-        self.spawn_vehicles()
-        self.dist_calc = DistanceCalculation(self.ego_vehicle, self.leading_vehicle, self.perception)
-        self.pid_controller = PID(P=3.0, I=0.0003, D=0.0)
-
         if self.gui:
             self.display = pygameViewer()
-        
-        if self.collect["option"] != 0:
-            self.collect_data = collectData(os.path.join(self.collect["path"], "episode_" + str(self.episode)), self.perception)
-        
+
+        if self.collect_path:
+            self.collect_data = collectData(self.collect_path, self.episode, self.perception)
+
         self.step_count = 0
         self.weather = DynamicPrecipitation(initial_precipitation=round(np.random.uniform(0.0,20.0), 2))
         self.world.set_weather(self.weather.get_weather_parameters())
-        
-        S0 = self.reset_episode(initial_distance, initial_speed)
+
+        if self.rl_agent:
+            self.spawn_vehicles()
+            self.dist_calc = DistanceCalculation(self.ego_vehicle, self.leading_vehicle, self.perception)
+            self.pid_controller = PID(P=3.0, I=0.0003, D=0.0)
+            S0 = self.reset_episode(initial_distance, initial_speed)
+
+        else:
+            leading_vehicle_position = np.random.uniform(130.0, 320.0)
+            self.spawn_vehicles(leading_vehicle_y=leading_vehicle_position, ego_vehicle_y=leading_vehicle_position-120.0)
+            self.dist_calc = DistanceCalculation(self.ego_vehicle, self.leading_vehicle)
+            S0 = self.warm()
+
+
         self.episode_count += 1
         return S0
     
@@ -87,25 +96,46 @@ class SetupWorld():
             if (distance<=initial_distance):
                 break
 
-            if self.collect["option"] == 1 and distance <= 110:
-                self.collect_data(image, distance, velocity, -1, weather_parameter.precipitation, self.step_count)
-
         # collect the data for s0
         regression_distance = 0
         if self.perception:
             regression_distance = self.dist_calc.getRegressionDistance(image)
-        if self.collect["option"] != 0:
+        if self.collect_path:
             self.collect_data(image, distance, velocity, -0.1, weather_parameter.precipitation, self.step_count, regression_distance)
         if self.perception:
             distance = regression_distance
 
         return [distance, velocity]
+    
+    def warm(self):
+        while True:
+            weather_parameter = self.weather.get_weather_parameters()
+            self.world.set_weather(weather_parameter)
+            control = carla.VehicleControl(
+                        throttle = 1.0,
+                        brake = 0.0,
+                        steer = 0.0
+            )
+            self.ego_vehicle.apply_control(control)
+            self.world.tick()
+            image = self.image_queue.get()
+            distance = self.dist_calc.getTrueDistance()
+            velocity = self.ego_vehicle.get_velocity().y
+            if self.gui:
+                self.display.updateViewer(image)
+            
+            if velocity > 0.1:
+                break
+
+        return [distance, velocity]
 
 
-    def spawn_vehicles(self):
+
+
+    def spawn_vehicles(self, leading_vehicle_y=320.0, ego_vehicle_y=10.0):
         self.bp_lib = self.world.get_blueprint_library()
         ego_bp = self.bp_lib.filter('vehicle.tesla.model3')[0]
-        spawn_point = Transform(Location(x=392.1, y=10.0, z=0.02), Rotation(yaw=89.6))
+        spawn_point = Transform(Location(x=392.1, y=ego_vehicle_y, z=0.02), Rotation(yaw=89.6))
         self.ego_vehicle = self.world.spawn_actor(ego_bp, spawn_point)
         self.setup_sensors(self.ego_vehicle)
         self.actor.append(self.ego_vehicle)
@@ -114,7 +144,7 @@ class SetupWorld():
         #leading_bp = self.bp_lib.filter('vehicle.audi.etron')[0]
         #leading_bp = self.bp_lib.filter('vehicle.audi.tt')[0]
         #leading_bp = random.choice(self.bp_lib.filter('vehicle.audi.*'))
-        spawn_point_leading = Transform(Location(x=392.1, y=320.0, z=0.0), Rotation(yaw=90))
+        spawn_point_leading = Transform(Location(x=392.1, y=leading_vehicle_y, z=0.0), Rotation(yaw=90))
         self.leading_vehicle = self.world.try_spawn_actor(leading_bp, spawn_point_leading)
         self.leading_vehicle.get_world()
         self.actor.append(self.leading_vehicle)
@@ -144,10 +174,17 @@ class SetupWorld():
         self.step_count += 1
         weather_parameter = self.weather.get_weather_parameters(step=self.step_count)
         self.world.set_weather(weather_parameter)
-        control=carla.VehicleControl(
-            throttle = 0.0,
-            brake = action
-        )
+        if self.rl_agent:
+            control=carla.VehicleControl(
+                throttle = 0.0,
+                brake = action
+            )
+        else:
+            control=carla.VehicleControl(
+                throttle = action,
+                brake = 0.0
+            )
+
         self.ego_vehicle.apply_control(control)
         self.world.tick()
         image = self.image_queue.get()
@@ -165,7 +202,7 @@ class SetupWorld():
             distance = regression_distance
             print("Groundtruth distance: {}, Regression distance: {}, Error: {}".format(groundtruth_distance, regression_distance, abs(regression_distance-groundtruth_distance)))
         velocity = self.ego_vehicle.get_velocity().y
-        if self.collect["option"] != 0:
+        if self.collect_path and groundtruth_distance < 110.0 and groundtruth_distance > 0.0:
             self.collect_data(image, groundtruth_distance, velocity, action, weather_parameter.precipitation, self.step_count, regression_distance)
 
         if self.gui:
@@ -193,11 +230,3 @@ class SetupWorld():
             reward = 0
 
         return [[distance, velocity], reward, done] 
-
-    def get_image(self):
-        img = np.frombuffer(self.image.raw_data, dtype=np.dtype("uint8"))
-        img = np.reshape(img, (self.image.height, self.image.width, 4))
-        img = img[:, :, :3]
-        img = cv2.resize(img, (224,224))
-        img = np.asarray(img) / 255.
-        return img

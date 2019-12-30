@@ -34,31 +34,42 @@ if __name__ == '__main__':
         carla_server = ServerManagerBinary({'CARLA_SERVER': os.environ["CARLA_SERVER"]})
         carla_server.reset()
         carla_server.wait_until_ready()
-        env = SetupWorld(town=1, gui=args.gui, collect=collect, perception=args.perception)
-        agent = ddpgAgent(Testing=args.testing)
-        input_preprocessor = InputPreprocessor()
-        for episode in range(args.episode):
-            initial_distance = np.random.normal(100, 1)
-            initial_speed = np.random.uniform(26,30)
-            s = env.reset(initial_distance, initial_speed)
-            print("Episode {} is started, target distance: {}, target speed: {}, initial distance: {}, initial speed: {}".format(episode, initial_distance, initial_speed, s[0], s[1]))
-            s = input_preprocessor(s)
-            epsilon = 1.0 - (episode+1)/(args.episode)
-            while True:
-                a = agent.getAction(s, epsilon)
-                s_, r, done= env.step(a[0][0])
-                s_ = input_preprocessor(s_)
-                if args.testing is False:
-                    agent.storeTrajectory(s, a, r, s_, done)
-                    agent.learn()
-                s = s_
-                if done:
-                    print("Episode {} is done, the reward is {}".format(episode,r))
-                    break
+        if collect["option"] == 1:
+            env = SetupWorld(town=1, gui=args.gui, collect_path=collect["path"], rl_agent=False)
+            for episode in range(args.episode):
+                print("Episode {} is starting.".format(episode))
+                _ = env.reset()
+                while True:
+                    _, _, done = env.step(0.5)
+                    if done:
+                        print("Episode {} is done.".format(episode))
+                        break
+        else:
+            env = SetupWorld(town=1, gui=args.gui, collect_path=collect["path"], perception=args.perception)
+            agent = ddpgAgent(Testing=args.testing)
+            input_preprocessor = InputPreprocessor()
+            for episode in range(args.episode):
+                initial_distance = np.random.normal(100, 1)
+                initial_speed = np.random.uniform(26,30)
+                s = env.reset(initial_distance, initial_speed)
+                print("Episode {} is started, target distance: {}, target speed: {}, initial distance: {}, initial speed: {}".format(episode, initial_distance, initial_speed, s[0], s[1]))
+                s = input_preprocessor(s)
+                epsilon = 1.0 - (episode+1)/(args.episode)
+                while True:
+                    a = agent.getAction(s, epsilon)
+                    s_, r, done= env.step(a[0][0])
+                    s_ = input_preprocessor(s_)
+                    if args.testing is False:
+                        agent.storeTrajectory(s, a, r, s_, done)
+                        agent.learn()
+                    s = s_
+                    if done:
+                        print("Episode {} is done, the reward is {}".format(episode,r))
+                        break
 
-            if args.testing is False:
-                if np.mod(episode, 10) == 0:
-                    agent.save_model()
+                if args.testing is False:
+                    if np.mod(episode, 10) == 0:
+                        agent.save_model()
         carla_server.stop()
     
     except AssertionError as error:
